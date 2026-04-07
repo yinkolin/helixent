@@ -17,7 +17,7 @@ export interface FunctionTool<
   parameters: P;
   /** The function to invoke when the tool is called. */
   // eslint-disable-next-line no-unused-vars
-  invoke: (input: z.infer<P>) => Promise<R>;
+  invoke: (input: z.infer<P>, signal?: AbortSignal) => Promise<R>;
 }
 
 /**
@@ -38,7 +38,7 @@ export function defineTool<P extends z.ZodSchema<Record<string, unknown>>, R>({
   description: string;
   parameters: P;
   // eslint-disable-next-line no-unused-vars
-  invoke: (input: z.infer<P>) => Promise<R>;
+  invoke: (input: z.infer<P>, signal?: AbortSignal) => Promise<R>;
 }): FunctionTool<P, R> {
   return { name, description, parameters, invoke } as FunctionTool<P, R>;
 }

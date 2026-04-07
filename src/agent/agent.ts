@@ -180,12 +180,13 @@ export class Agent {
   }
 
   private async *_act(toolUses: ToolUseContent[]): AsyncGenerator<ToolMessage> {
+    const signal = this._abortController?.signal;
     const pending = toolUses.map(async (toolUse, index) => {
       try {
         const tool = this.tools?.find((t) => t.name === toolUse.name);
         if (!tool) throw new Error(`Tool ${toolUse.name} not found`);
         await this._beforeToolUse(toolUse);
-        const result = await tool.invoke(toolUse.input);
+        const result = await tool.invoke(toolUse.input, signal);
         await this._afterToolUse(toolUse, result);
         return { index, toolUseId: toolUse.id, result };
       } catch (error) {
@@ -194,9 +195,22 @@ export class Agent {
       }
     });
 
+    const abortPromise = signal
+      ? new Promise<never>((_, reject) => {
+          if (signal.aborted) {
+            reject(signal.reason);
+            return;
+          }
+          signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+        })
+      : null;
+
     const remaining = new Set(pending.map((_, i) => i));
     while (remaining.size > 0) {
-      const resolved = (await Promise.race([...remaining].map((i) => pending[i])))!;
+      const candidates = [...remaining].map((i) => pending[i]);
+      const resolved = (await (abortPromise
+        ? Promise.race([...candidates, abortPromise])
+        : Promise.race(candidates)))!;
       remaining.delete(resolved.index);
 
       const toolMessage: ToolMessage = {

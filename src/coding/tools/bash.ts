@@ -11,13 +11,20 @@ export const bashTool = defineTool({
       .describe("Explain why you want to execute the command. Always place `description` as the first parameter."),
     command: z.string().describe("The bash command to execute."),
   }),
-  invoke: async ({ command }) => {
+  invoke: async ({ command }, signal) => {
     // Execute the command and return the standard output or standard error
-    const proc = await Bun.spawn({
+    const proc = Bun.spawn({
       cmd: ["zsh", "-c", command],
       stdout: "pipe",
       stderr: "pipe",
     });
+
+    if (signal) {
+      const onAbort = () => proc.kill();
+      signal.addEventListener("abort", onAbort, { once: true });
+      void proc.exited.then(() => signal.removeEventListener("abort", onAbort));
+    }
+
     const output = await new Response(proc.stdout).text();
     const exitCode = await proc.exited;
     if (exitCode !== 0) {
