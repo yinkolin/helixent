@@ -1,4 +1,4 @@
-export const defaultTheme = {
+export const darkTheme = {
   colors: {
     primary: "blue",
     highlightedText: "white",
@@ -8,4 +8,4 @@ export const defaultTheme = {
   },
 };
 
-export const currentTheme = defaultTheme;
+export const currentTheme = darkTheme;
