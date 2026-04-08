@@ -24,7 +24,7 @@ export const strReplaceTool = defineTool({
   }),
   invoke: async ({ path, old, new: replacement, count }) => {
     const file = Bun.file(path);
-    if (!file.exists()) {
+    if (!(await file.exists())) {
       return { ok: false as const, error: `File ${path} does not exist.` };
     }
 
