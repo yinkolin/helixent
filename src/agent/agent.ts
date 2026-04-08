@@ -118,6 +118,13 @@ export class Agent {
   }
 
   /**
+   * Clears all messages from the agent's internal context.
+   */
+  clearMessages() {
+    this._context.messages.length = 0;
+  }
+
+  /**
    * Runs the agent.
    * @param message - The message to send to the agent.
    * @returns The response from the agent. If the agent ran successfully, the response will be the final response from the agent. If the agent stopped running due to a maximum number of steps being reached, the response will be the last response from the agent.
@@ -197,12 +204,12 @@ export class Agent {
 
     const abortPromise = signal
       ? new Promise<never>((_, reject) => {
-          if (signal.aborted) {
-            reject(signal.reason);
-            return;
-          }
-          signal.addEventListener("abort", () => reject(signal.reason), { once: true });
-        })
+        if (signal.aborted) {
+          reject(signal.reason);
+          return;
+        }
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+      })
       : null;
 
     const remaining = new Set(pending.map((_, i) => i));
