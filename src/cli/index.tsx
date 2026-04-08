@@ -1,6 +1,7 @@
 import { render } from "ink";
 
 import type { Agent } from "@/agent";
+import { validateIntegrity } from "@/cli/bootstrap";
 import { createCodingAgent } from "@/coding";
 import { OpenAIModelProvider } from "@/community/openai";
 import { Model } from "@/foundation";
@@ -35,5 +36,6 @@ function main() {
 }
 
 console.info();
+await validateIntegrity();
 await setup();
 main();
