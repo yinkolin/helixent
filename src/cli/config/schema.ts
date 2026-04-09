@@ -4,6 +4,8 @@ export const modelEntrySchema = z.object({
   name: z.string().min(1),
   baseURL: z.string().min(1),
   APIKey: z.string().min(1),
+  /** Provider type: "openai" (default) or "anthropic". */
+  provider: z.enum(["openai", "anthropic"]).optional().default("openai"),
 });
 
 export const helixentConfigSchema = z.object({
