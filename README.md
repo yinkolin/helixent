@@ -55,6 +55,7 @@ https://github.com/user-attachments/assets/4ad89f14-e338-43e4-82ce-91cb83d58be2
 - **Agent Loop (Middleware-Ready)**
   - A reusable ReAct-style agent loop.
   - First-class middleware support for extending behavior (state, tool orchestration, skills, etc.).
+  - Human-in-the-loop support for approval of tool calls.
   - See [Middleware](#middleware)
 - **Skills Support**
   - The [standard agent skill](https://agentskills.io/) format is supported.
