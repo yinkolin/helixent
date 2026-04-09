@@ -18,6 +18,8 @@ import {
   type InputEditorState,
 } from "../input-editor";
 
+import { useInputHistory } from "./use-input-history";
+
 const WELCOME_MESSAGES = [
   "To the moon!",
   "What do you want to build today?",
@@ -46,6 +48,7 @@ export function useCommandInput({
   const [welcomeMessage] = useState(
     () => WELCOME_MESSAGES[Math.floor(Math.random() * WELCOME_MESSAGES.length)] ?? "What's on your mind?",
   );
+  const { isBrowsing, browseUp, browseDown, exitBrowsing, saveEntry } = useInputHistory();
 
   const slashQuery = getSlashQuery(editorState.text);
   const filteredCommands = useMemo(
@@ -117,6 +120,7 @@ export function useCommandInput({
       }
 
       if (key.return) {
+        saveEntry(editorState.text);
         onSubmit?.(buildPromptSubmission(editorState.text, commands));
         setEditorState({ text: "", cursorOffset: 0 });
         setDismissedQuery(null);
@@ -136,7 +140,24 @@ export function useCommandInput({
       }
 
       if (key.backspace || key.delete) {
+        exitBrowsing();
         updateEditorState(removeCharacterBeforeCursor(editorState));
+        return;
+      }
+
+      if (!pickerOpen && (editorState.text === "" || isBrowsing) && key.upArrow) {
+        const entry = browseUp();
+        if (entry !== null) {
+          setEditorState({ text: entry, cursorOffset: entry.length });
+        }
+        return;
+      }
+
+      if (!pickerOpen && isBrowsing && key.downArrow) {
+        const entry = browseDown();
+        if (entry !== null) {
+          setEditorState({ text: entry, cursorOffset: entry.length });
+        }
         return;
       }
 
@@ -144,6 +165,7 @@ export function useCommandInput({
         return;
       }
 
+      exitBrowsing();
       updateEditorState(insertTextAtCursor(editorState, input));
     },
     { isActive: true },

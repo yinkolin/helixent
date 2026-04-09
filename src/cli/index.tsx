@@ -54,7 +54,7 @@ if (args.length > 0) {
   const skillsDirs = [
     join(process.cwd(), "skills"),
     join(process.cwd(), ".agents/skills"),
-    join(process.cwd(), ".helixent/skills"),
+    join(Bun.env.HELIXENT_HOME!, "skills"),
     "~/.agents/skills",
     "~/.helixent/skills",
   ];

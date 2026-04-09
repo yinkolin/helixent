@@ -1,11 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -27,7 +20,7 @@ export function getDefaultHelixentHome(): string {
 
 /** Resolves `HELIXENT_HOME` from the environment (must be set before calling). */
 export function getHelixentHomePath(): string {
-  const v = process.env.HELIXENT_HOME?.trim();
+  const v = Bun.env.HELIXENT_HOME?.trim();
   if (!v) {
     throw new Error("HELIXENT_HOME is not set");
   }

@@ -143,14 +143,18 @@ const ToolUseContentItem = memo(function ToolUseContentItem({
       return (
         <Box flexDirection="column">
           <Text>{content.input.description as string}</Text>
-          <Text color={currentTheme.colors.dimText}>└─ {(content.input.path as string) + " :: " + (content.input.pattern as string)}</Text>
+          <Text color={currentTheme.colors.dimText}>
+            └─ {(content.input.path as string) + " :: " + (content.input.pattern as string)}
+          </Text>
         </Box>
       );
     case "grep_search":
       return (
         <Box flexDirection="column">
           <Text>{content.input.description as string}</Text>
-          <Text color={currentTheme.colors.dimText}>└─ {(content.input.path as string) + " :: " + (content.input.pattern as string)}</Text>
+          <Text color={currentTheme.colors.dimText}>
+            └─ {(content.input.path as string) + " :: " + (content.input.pattern as string)}
+          </Text>
         </Box>
       );
     case "apply_patch":
@@ -238,21 +242,13 @@ function summarizeToolResult(content: string, toolUse?: ToolUseContent) {
 
   switch (toolUse.name) {
     case "todo_write":
-      return null;
     case "read_file":
-      return null;
     case "bash":
-      return null;
     case "write_file":
-      return null;
     case "str_replace":
-      return null;
     case "list_files":
-      return null;
     case "glob_search":
-      return null;
     case "grep_search":
-      return null;
     case "apply_patch":
       return null;
     default:

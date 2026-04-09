@@ -1,10 +1,4 @@
-import type {
-  AssistantMessage,
-  NonSystemMessage,
-  ToolMessage,
-  ToolUseContent,
-  UserMessage,
-} from "@/foundation";
+import type { AssistantMessage, NonSystemMessage, ToolMessage, ToolUseContent, UserMessage } from "@/foundation";
 
 const ESC = "\x1b[";
 const RESET = `${ESC}0m`;
@@ -31,9 +25,7 @@ export function messageToPlainText(message: NonSystemMessage): string | null {
 }
 
 function userMessageText(message: UserMessage): string {
-  const text = message.content
-    .map((c) => (c.type === "text" ? c.text : "[image]"))
-    .join("\n");
+  const text = message.content.map((c) => (c.type === "text" ? c.text : "[image]")).join("\n");
   return `${bold(white("❯"))} ${white(text)}`;
 }
 
@@ -64,6 +56,14 @@ function toolUseText(content: ToolUseContent): string {
       return `${dim("⏺")} ${content.input.description as string}\n  ${dim(`└─ ${content.input.path as string}`)}`;
     case "todo_write":
       return `${dim("⏺")} Working on todos`;
+    case "list_files":
+      return `${dim("⏺")} ${content.input.description as string}\n  ${dim(`└─ ${content.input.path as string}`)}`;
+    case "glob_search":
+      return `${dim("⏺")} ${content.input.description as string}\n  ${dim(`└─ ${content.input.path as string} :: ${content.input.pattern as string}`)}`;
+    case "grep_search":
+      return `${dim("⏺")} ${content.input.description as string}\n  ${dim(`└─ ${content.input.path as string} :: ${content.input.pattern as string}`)}`;
+    case "apply_patch":
+      return `${dim("⏺")} ${content.input.description as string}\n  ${dim(`└─ unified diff patch`)}`;
     default:
       return `${dim("⏺")} Tool call\n  ${dim(`└─ ${content.name}`)}`;
   }

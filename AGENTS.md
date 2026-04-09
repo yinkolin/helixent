@@ -110,6 +110,20 @@ bun run build:bin
 
 Environment variables used by the sample root `index.ts` are provider-specific (e.g. `ARK_BASE_URL`, `ARK_API_KEY` for an OpenAI-compatible endpoint).
 
+## Notes: tool use rendering (CLI vs TUI)
+
+There are two parallel renderers for `tool_use` content:
+
+- `src/cli/tui/message-text.ts` (`toolUseText`) produces **ANSI-colored plain text**
+- `src/cli/tui/components/message-history.tsx` (`ToolUseContentItem`) produces **Ink components**
+
+These share a largely identical mapping from `tool_use.name` to a short summary (e.g. `bash` shows `description + command`, file tools show `description + path`, search tools show `path :: pattern`, `apply_patch` shows `unified diff patch`). However, they are intentionally not directly reused because:
+
+- `todo_write` in the TUI depends on `todoSnapshots` and renders richer state (current/next todo + counts), while the plain-text renderer is intentionally minimal.
+- The presentation layers differ (ANSI strings include symbols/spacing; TUI colors and `⏺` marker are rendered outside the tool summary component).
+
+If you want to de-duplicate in the future, prefer extracting a **shared structured summary** helper (e.g. `{ title: string; detail?: string }`) and have each renderer format it for its own output, keeping `todo_write` special-cased in the TUI.
+
 ## Quality gate
 
 Run `bun run check` as the main gate (`tsc --noEmit` + ESLint). Use `bun run check:types` for type-check-only validation.
