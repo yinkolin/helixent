@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import type { NonSystemMessage } from "@/foundation";
 
+import type { SlashCommand } from "./command-registry";
 import { ApprovalPrompt } from "./components/approval-prompt";
 import { Footer } from "./components/footer";
 import { Header } from "./components/header";
@@ -19,7 +20,7 @@ function allDone(todos?: { status: string }[]) {
   return !!todos?.length && todos.every((t) => t.status === "completed" || t.status === "cancelled");
 }
 
-export function App() {
+export function App({ commands }: { commands: SlashCommand[] }) {
   const { streaming, messages, onSubmit, abort } = useAgentLoop();
   const { approvalRequest, respondToApproval } = useApprovalManager();
   const { latestTodos, todoSnapshots, toolUses } = useMemo(() => buildTodoViewState(messages), [messages]);
@@ -57,7 +58,7 @@ export function App() {
             onDeny={() => respondToApproval(false)}
           />
         ) : (
-          <InputBox onSubmit={onSubmit} onAbort={abort} />
+          <InputBox commands={commands} onSubmit={onSubmit} onAbort={abort} />
         )}
       </Box>
       <Footer />

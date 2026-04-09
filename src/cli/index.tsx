@@ -12,6 +12,7 @@ import { OpenAIModelProvider } from "@/community/openai";
 import { Model } from "@/foundation";
 
 import { App } from "./tui";
+import { loadAvailableCommands, type SlashCommand } from "./tui/command-registry";
 import { AgentLoopProvider } from "./tui/hooks/use-agent-loop";
 import { HELIXENT_NAME, HELIXENT_VERSION } from "./version";
 
@@ -23,14 +24,11 @@ program
 
 registerCommands(program);
 
-// If any arguments are provided, let commander handle them (subcommands, --help, --version, etc.).
-// With no arguments, fall through to the interactive TUI.
 const args = process.argv.slice(2);
 
 if (args.length > 0) {
   await program.parseAsync(process.argv);
 } else {
-  // No subcommand — launch the interactive TUI (default behaviour).
   console.info();
   await validateIntegrity();
 
@@ -53,20 +51,24 @@ if (args.length > 0) {
     },
   });
 
+  const skillsDirs = [
+    join(process.cwd(), "skills"),
+    join(process.cwd(), ".agents/skills"),
+    join(process.cwd(), ".helixent/skills"),
+    "~/.agents/skills",
+    "~/.helixent/skills",
+  ];
+
   const agent = await createCodingAgent({
     model,
-    skillsDirs: [
-      join(process.cwd(), ".agents/skills"),
-      join(process.cwd(), ".helixent/skills"),
-      "~/.agents/skills",
-      "~/.helixent/skills",
-    ],
-    askUser: globalApprovalManager.askUser
+    skillsDirs,
+    askUser: globalApprovalManager.askUser,
   });
+  const commands: SlashCommand[] = await loadAvailableCommands(skillsDirs);
 
   render(
     <AgentLoopProvider agent={agent}>
-      <App />
+      <App commands={commands} />
     </AgentLoopProvider>,
     { patchConsole: false },
   );

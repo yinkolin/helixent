@@ -29,7 +29,9 @@ import type { SkillFrontmatter } from "./types";
  * - Skills are appended in the order of `skillsDirs`, then the directory listing order of each
  *   `skillsDir` (as returned by `readdir`).
  */
-export function createSkillsMiddleware(skillsDirs: string[]): AgentMiddleware {
+export function createSkillsMiddleware(
+  skillsDirs: string[] = [join(process.cwd(), "skills")],
+): AgentMiddleware {
   return {
     beforeAgentRun: async () => {
       const skills: SkillFrontmatter[] = [];
@@ -47,7 +49,6 @@ export function createSkillsMiddleware(skillsDirs: string[]): AgentMiddleware {
         try {
           folders = await fs.readdir(skillsDir, { withFileTypes: true });
         } catch {
-          // Missing/invalid skills directory; treat as empty.
           continue;
         }
 
@@ -62,6 +63,7 @@ export function createSkillsMiddleware(skillsDirs: string[]): AgentMiddleware {
           skills.push(frontmatter);
         }
       }
+
       return {
         skills,
       };
@@ -69,6 +71,12 @@ export function createSkillsMiddleware(skillsDirs: string[]): AgentMiddleware {
 
     beforeModel: async ({ modelContext, agentContext }) => {
       if (agentContext.skills && agentContext.skills.length > 0) {
+        const requestedSkill = agentContext.requestedSkillName
+          ? agentContext.skills.find(
+              (skill) => skill.name.toLowerCase() === agentContext.requestedSkillName?.toLowerCase(),
+            )
+          : null;
+
         return {
           prompt:
             modelContext.prompt +
@@ -78,10 +86,17 @@ You have access to skills that provide optimized workflows for specific tasks. E
 
 **Progressive Loading Pattern:**
 1. When a user query matches a skill's use case, immediately call \`read_file\` on the skill's main file using the path attribute provided in the skill tag below
-2. Read and understand the skill's workflow and instructions
-3. The skill file contains references to external resources under the same folder
-4. Load referenced resources only when needed during execution
-5. Follow the skill's instructions precisely
+2. If an explicit requested skill is provided in the system context, load that skill first even if the user message is short
+3. Read and understand the skill's workflow and instructions
+4. The skill file contains references to external resources under the same folder
+5. Load referenced resources only when needed during execution
+6. Follow the skill's instructions precisely
+
+${requestedSkill ? `<explicit_skill_invocation>
+The user explicitly selected the skill "${requestedSkill.name}" from the slash command picker.
+You must read the matching skill file at "${requestedSkill.path}" before answering.
+</explicit_skill_invocation>
+` : ""}
 
 <skills>
 ${JSON.stringify(agentContext.skills, null, 2)}

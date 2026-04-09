@@ -4,12 +4,15 @@ import type { ReactNode } from "react";
 import type { Agent } from "@/agent";
 import type { AssistantMessage, NonSystemMessage, UserMessage } from "@/foundation";
 
+import type { PromptSubmission } from "../command-registry";
+import { resolveBuiltinCommand } from "../command-registry";
+
 type AgentLoopState = {
   agent: Agent;
   streaming: boolean;
   messages: NonSystemMessage[];
   // eslint-disable-next-line no-unused-vars
-  onSubmit: (...args: [string]) => Promise<void>;
+  onSubmit: (submission: PromptSubmission) => Promise<void>;
   abort: () => void;
   tokenCount: number;
 };
@@ -69,15 +72,18 @@ export function AgentLoopProvider({ agent, children }: { agent: Agent; children:
   }, [messages]);
 
   const onSubmit = useCallback(
-    async (text: string) => {
-      if (text === "exit" || text === "quit" || text === "/exit" || text === "/quit") {
+    async (submission: PromptSubmission) => {
+      const { text, requestedSkillName } = submission;
+      const builtinCommand = resolveBuiltinCommand(text);
+
+      if (builtinCommand === "exit" || builtinCommand === "quit") {
         process.exit(0);
         return;
       }
 
       if (streamingRef.current) return;
 
-      if (text === "/clear") {
+      if (builtinCommand === "clear") {
         agent.clearMessages();
         flushPendingMessages();
         setMessages([]);
@@ -88,6 +94,7 @@ export function AgentLoopProvider({ agent, children }: { agent: Agent; children:
       setStreaming(true);
 
       try {
+        agent.setRequestedSkillName(requestedSkillName);
         const userMessage: UserMessage = { role: "user", content: [{ type: "text", text }] };
         setMessages((prev) => [...prev, userMessage]);
 
@@ -99,6 +106,7 @@ export function AgentLoopProvider({ agent, children }: { agent: Agent; children:
         if (isAbortError(error)) return;
         throw error;
       } finally {
+        agent.setRequestedSkillName(null);
         flushPendingMessages();
         setStreaming(false);
       }
@@ -147,7 +155,6 @@ export function useAgentLoop() {
 function isAbortError(error: unknown): boolean {
   if (error instanceof DOMException && error.name === "AbortError") return true;
   if (error instanceof Error && error.name === "AbortError") return true;
-  // OpenAI SDK throws APIUserAbortError
   if (error instanceof Error && error.constructor.name === "APIUserAbortError") return true;
   return false;
 }
