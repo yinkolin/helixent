@@ -122,10 +122,22 @@ helixent config model add
 helixent config model remove <model_name>
 ```
 
+or select from the list of configured models:
+
+```bash
+helixent config model remove
+```
+
 ### Set the default model
 
 ```bash
 helixent config model set-default <model_name>
+```
+
+or select from the list of configured models:
+
+```bash
+helixent config model set-default
 ```
 
 ## Architecture
