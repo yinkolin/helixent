@@ -133,6 +133,8 @@ const ToolUseContentItem = memo(function ToolUseContentItem({
     case "read_file":
     case "write_file":
     case "list_files":
+    case "file_info":
+    case "mkdir":
       return (
         <Box flexDirection="column">
           <Text>{content.input.description as string}</Text>
@@ -155,6 +157,13 @@ const ToolUseContentItem = memo(function ToolUseContentItem({
           <Text color={currentTheme.colors.dimText}>
             └─ {(content.input.path as string) + " :: " + (content.input.pattern as string)}
           </Text>
+        </Box>
+      );
+    case "move_path":
+      return (
+        <Box flexDirection="column">
+          <Text>{content.input.description as string}</Text>
+          <Text color={currentTheme.colors.dimText}>└─ {(content.input.from as string) + " -> " + (content.input.to as string)}</Text>
         </Box>
       );
     case "apply_patch":
@@ -246,12 +255,42 @@ function summarizeToolResult(content: string, toolUse?: ToolUseContent) {
     case "bash":
     case "write_file":
     case "str_replace":
+      return null;
+    case "read_file":
     case "list_files":
     case "glob_search":
     case "grep_search":
+    case "file_info":
+    case "mkdir":
+    case "move_path":
     case "apply_patch":
-      return null;
+      return summarizeStructuredToolResult(content);
     default:
       return content;
   }
+}
+
+function summarizeStructuredToolResult(content: string) {
+  try {
+    const parsed = JSON.parse(content) as {
+      ok?: boolean;
+      summary?: unknown;
+      error?: unknown;
+      code?: unknown;
+    };
+
+    if (parsed.ok === true && typeof parsed.summary === "string") {
+      return parsed.summary;
+    }
+
+    if (parsed.ok === false) {
+      const message = typeof parsed.summary === "string" ? parsed.summary : typeof parsed.error === "string" ? parsed.error : content;
+      const code = typeof parsed.code === "string" ? parsed.code : null;
+      return code ? `Error [${code}]: ${message}` : `Error: ${message}`;
+    }
+  } catch {
+    return content;
+  }
+
+  return content;
 }

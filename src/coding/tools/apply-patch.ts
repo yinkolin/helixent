@@ -5,21 +5,29 @@ import z from "zod";
 
 import { defineTool } from "@/foundation";
 
+import { errorToolResult, okToolResult } from "./tool-result";
+
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@$/;
 
 type HunkLine = { type: "context" | "delete" | "add"; text: string };
 
+type PatchHunk = {
+  oldStart: number;
+  oldCount: number;
+  newStart: number;
+  newCount: number;
+  lines: HunkLine[];
+};
+
 type PatchFile = {
   oldPath: string;
   newPath: string;
-  hunks: Array<{
-    oldStart: number;
-    oldCount: number;
-    newStart: number;
-    newCount: number;
-    lines: HunkLine[];
-  }>;
+  hunks: PatchHunk[];
 };
+
+function normalizePatchPath(rawPath: string) {
+  return rawPath.replace(/^b\//, "").replace(/^a\//, "");
+}
 
 function parsePatch(patch: string): PatchFile[] {
   const lines = patch.replace(/\r\n/g, "\n").split("\n");
@@ -34,11 +42,11 @@ function parsePatch(patch: string): PatchFile[] {
       if (!next.startsWith("+++ ")) {
         throw new Error("Patch is missing +++ header after --- header.");
       }
-      const rawOldPath = line.slice(4).trim();
-      const rawNewPath = next.slice(4).trim();
-      const oldPath = rawOldPath.replace(/^b\//, "").replace(/^a\//, "");
-      const newPath = rawNewPath.replace(/^b\//, "").replace(/^a\//, "");
-      current = { oldPath, newPath, hunks: [] };
+      current = {
+        oldPath: normalizePatchPath(line.slice(4).trim()),
+        newPath: normalizePatchPath(next.slice(4).trim()),
+        hunks: [],
+      };
       files.push(current);
       index += 2;
       continue;
@@ -49,12 +57,12 @@ function parsePatch(patch: string): PatchFile[] {
       if (!current) {
         throw new Error("Encountered hunk before file header.");
       }
-      const hunk = {
+      const hunk: PatchHunk = {
         oldStart: Number(header[1]),
         oldCount: Number(header[2] ?? 1),
         newStart: Number(header[3]),
         newCount: Number(header[4] ?? 1),
-        lines: [] as HunkLine[],
+        lines: [],
       };
       index += 1;
       while (index < lines.length) {
@@ -63,6 +71,10 @@ function parsePatch(patch: string): PatchFile[] {
           break;
         }
         if (hunkLine === "\\ No newline at end of file") {
+          index += 1;
+          continue;
+        }
+        if (hunkLine === "") {
           index += 1;
           continue;
         }
@@ -92,13 +104,38 @@ function parsePatch(patch: string): PatchFile[] {
   return files;
 }
 
-function applyHunks(original: string, hunks: PatchFile["hunks"]) {
+function validateHunkCounts(hunk: PatchHunk, filePath: string) {
+  let oldSeen = 0;
+  let newSeen = 0;
+
+  for (const line of hunk.lines) {
+    if (line.type === "context") {
+      oldSeen += 1;
+      newSeen += 1;
+    } else if (line.type === "delete") {
+      oldSeen += 1;
+    } else {
+      newSeen += 1;
+    }
+  }
+
+  if (oldSeen !== hunk.oldCount || newSeen !== hunk.newCount) {
+    throw new Error(
+      `Hunk count mismatch for ${filePath} at @@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@. ` +
+        `Observed old=${oldSeen}, new=${newSeen}.`,
+    );
+  }
+}
+
+function applyHunks(original: string, file: PatchFile) {
   const sourceLines = original === "" ? [] : original.replace(/\r\n/g, "\n").split("\n");
   const output: string[] = [];
   let sourceIndex = 0;
 
-  for (const hunk of hunks) {
+  for (const hunk of file.hunks) {
+    validateHunkCounts(hunk, file.newPath);
     const expectedIndex = hunk.oldStart - 1;
+
     while (sourceIndex < expectedIndex) {
       output.push(sourceLines[sourceIndex] ?? "");
       sourceIndex += 1;
@@ -108,14 +145,18 @@ function applyHunks(original: string, hunks: PatchFile["hunks"]) {
       if (line.type === "context") {
         const actual = sourceLines[sourceIndex] ?? "";
         if (actual !== line.text) {
-          throw new Error(`Context mismatch at line ${sourceIndex + 1}: expected ${JSON.stringify(line.text)}, got ${JSON.stringify(actual)}`);
+          throw new Error(
+            `Context mismatch in ${file.newPath} at line ${sourceIndex + 1}: expected ${JSON.stringify(line.text)}, got ${JSON.stringify(actual)}`,
+          );
         }
         output.push(actual);
         sourceIndex += 1;
       } else if (line.type === "delete") {
         const actual = sourceLines[sourceIndex] ?? "";
         if (actual !== line.text) {
-          throw new Error(`Delete mismatch at line ${sourceIndex + 1}: expected ${JSON.stringify(line.text)}, got ${JSON.stringify(actual)}`);
+          throw new Error(
+            `Delete mismatch in ${file.newPath} at line ${sourceIndex + 1}: expected ${JSON.stringify(line.text)}, got ${JSON.stringify(actual)}`,
+          );
         }
         sourceIndex += 1;
       } else {
@@ -134,7 +175,8 @@ function applyHunks(original: string, hunks: PatchFile["hunks"]) {
 
 export const applyPatchTool = defineTool({
   name: "apply_patch",
-  description: "Apply a unified diff patch to one or more files using absolute paths in the patch headers. Note: File deletion is not supported (will fail if +++ /dev/null is used).",
+  description:
+    "Apply a unified diff patch to one or more files using absolute paths in the patch headers. Note: File deletion is not supported (will fail if +++ /dev/null is used).",
   parameters: z.object({
     description: z
       .string()
@@ -144,31 +186,47 @@ export const applyPatchTool = defineTool({
   invoke: async ({ patch }) => {
     try {
       const files = parsePatch(patch);
-      const changed: string[] = [];
+      const changedFiles: string[] = [];
 
       for (const file of files) {
         if (!file.newPath.startsWith("/")) {
-          return { ok: false as const, error: `Patch paths must be absolute. Received: ${file.newPath}` };
+          return errorToolResult(`Patch paths must be absolute. Received: ${file.newPath}`, "INVALID_PATCH_PATH", {
+            oldPath: file.oldPath,
+            newPath: file.newPath,
+          });
         }
+
         if (file.newPath === "/dev/null") {
-          return { ok: false as const, error: "File deletion (+++ /dev/null) is currently not supported by apply_patch." };
+          return errorToolResult(
+            "File deletion (+++ /dev/null) is currently not supported by apply_patch.",
+            "DELETE_NOT_SUPPORTED",
+            {
+              oldPath: file.oldPath,
+              newPath: file.newPath,
+            },
+          );
         }
 
         const target = Bun.file(file.newPath);
         const original = (await target.exists()) ? await target.text() : "";
-        const updated = applyHunks(original, file.hunks);
+        const updated = applyHunks(original, file);
         const parent = dirname(file.newPath);
+
         if (!(await exists(parent))) {
           await mkdir(parent, { recursive: true });
         }
+
         await target.write(updated);
-        changed.push(file.newPath);
+        changedFiles.push(file.newPath);
       }
 
-      return { ok: true as const, changedFiles: changed, fileCount: changed.length };
+      return okToolResult(`Applied patch to ${changedFiles.length} file(s).`, {
+        fileCount: changedFiles.length,
+        changedFiles,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return { ok: false as const, error: message };
+      return errorToolResult(message, "PATCH_APPLY_FAILED");
     }
   },
 });

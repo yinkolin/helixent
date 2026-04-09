@@ -8,9 +8,12 @@ import type { Model, NonSystemMessage, ToolUseContent } from "@/foundation";
 
 import { applyPatchTool } from "../tools/apply-patch";
 import { bashTool } from "../tools/bash";
+import { fileInfoTool } from "../tools/file-info";
 import { globSearchTool } from "../tools/glob-search";
 import { grepSearchTool } from "../tools/grep-search";
 import { listFilesTool } from "../tools/list-files";
+import { mkdirTool } from "../tools/mkdir";
+import { movePathTool } from "../tools/move-path";
 import { readFileTool } from "../tools/read-file";
 import { strReplaceTool } from "../tools/str-replace";
 import { writeFileTool } from "../tools/write-file";
@@ -47,7 +50,7 @@ export async function createCodingAgent({
   if (askUser) {
     middlewares.push(
       createApprovalMiddleware({
-        requiresApproval: ["bash", "write_file", "str_replace", "apply_patch"],
+        requiresApproval: ["bash", "write_file", "str_replace", "apply_patch", "mkdir", "move_path"],
         askUser,
       }),
     );
@@ -69,9 +72,12 @@ Use the given tools and skills to perform parallel/sequential operations and sol
     messages,
     tools: [
       bashTool,
+      fileInfoTool,
       listFilesTool,
       globSearchTool,
       grepSearchTool,
+      mkdirTool,
+      movePathTool,
       readFileTool,
       writeFileTool,
       strReplaceTool,

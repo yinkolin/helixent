@@ -2,6 +2,7 @@ import z from "zod";
 
 import { defineTool } from "@/foundation";
 
+import { errorToolResult, okToolResult } from "./tool-result";
 import { ensureAbsolutePath, truncateText } from "./tool-utils";
 
 const DEFAULT_MAX_CHARS = 12000;
@@ -21,16 +22,20 @@ export const readFileTool = defineTool({
   invoke: async ({ path, startLine, endLine, maxChars }) => {
     const absolute = ensureAbsolutePath(path);
     if (!absolute.ok) {
-      return `Error: ${absolute.error}`;
+      return errorToolResult(absolute.error, "INVALID_PATH", { path });
     }
 
     if (startLine !== undefined && endLine !== undefined && startLine > endLine) {
-      return "Error: startLine must be less than or equal to endLine.";
+      return errorToolResult("startLine must be less than or equal to endLine.", "INVALID_RANGE", {
+        path,
+        startLine,
+        endLine,
+      });
     }
 
     const file = Bun.file(path);
     if (!(await file.exists())) {
-      return `Error: File ${path} does not exist.`;
+      return errorToolResult(`File ${path} does not exist.`, "FILE_NOT_FOUND", { path });
     }
 
     const text = await file.text();
@@ -39,21 +44,29 @@ export const readFileTool = defineTool({
     const end = endLine ? Math.min(endLine, lines.length) : lines.length;
 
     if (start < 0 || start >= lines.length) {
-      return `Error: startLine ${startLine} is out of range for file ${path}.`;
+      return errorToolResult(`startLine ${startLine} is out of range for file ${path}.`, "START_LINE_OUT_OF_RANGE", {
+        path,
+        startLine,
+        totalLines: lines.length,
+      });
     }
 
     const selected = lines.slice(start, end);
     const numbered = selected.map((line, index) => `${start + index + 1}: ${line}`).join("\n");
     const limited = truncateText(numbered, maxChars ?? DEFAULT_MAX_CHARS);
+    const isWholeFileRead = !startLine && !endLine;
 
-    // If reading the whole file without truncation, return raw text (no line numbers)
-    // This allows easier parsing or regex matching for the agent.
-    if (!startLine && !endLine && !limited.truncated) {
-      return text;
-    }
-
-    const rangeLabel = `${start + 1}-${start + selected.length}`;
-    const suffix = limited.truncated ? "\n\n[read_file output truncated]" : "";
-    return `File: ${path}\nLines: ${rangeLabel} of ${lines.length}\n\n${limited.text}${suffix}`;
+    return okToolResult(
+      isWholeFileRead ? `Read file: ${path}` : `Read lines ${start + 1}-${start + selected.length} from ${path}`,
+      {
+        path,
+        startLine: start + 1,
+        endLine: start + selected.length,
+        totalLines: lines.length,
+        truncated: limited.truncated,
+        content: isWholeFileRead && !limited.truncated ? text : limited.text,
+        contentFormat: isWholeFileRead && !limited.truncated ? "raw" : "numbered_lines",
+      },
+    );
   },
 });

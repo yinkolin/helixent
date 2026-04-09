@@ -2,6 +2,7 @@ import z from "zod";
 
 import { defineTool } from "@/foundation";
 
+import { errorToolResult, okToolResult } from "./tool-result";
 import { ensureDirectoryPath, truncateText } from "./tool-utils";
 
 const DEFAULT_LIMIT = 200;
@@ -22,7 +23,7 @@ export const globSearchTool = defineTool({
   invoke: async ({ path, pattern, limit, maxChars }) => {
     const dirCheck = await ensureDirectoryPath(path);
     if (!dirCheck.ok) {
-      return `Error: ${dirCheck.error}`;
+      return errorToolResult(dirCheck.error, "INVALID_DIRECTORY", { path, pattern });
     }
 
     const matches: string[] = [];
@@ -36,14 +37,17 @@ export const globSearchTool = defineTool({
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return `Error: glob_search failed - ${message}`;
-    }
-
-    if (matches.length === 0) {
-      return `No files matched pattern ${pattern} under ${path}.`;
+      return errorToolResult(`glob_search failed for pattern ${pattern}`, "GLOB_SEARCH_FAILED", { path, pattern, message });
     }
 
     const limited = truncateText(matches.join("\n"), maxChars ?? DEFAULT_MAX_CHARS);
-    return `Glob root: ${path}\nPattern: ${pattern}\nMatches: ${matches.length}\n\n${limited.text}`;
+    return okToolResult(`Found ${matches.length} files matching ${pattern}`, {
+      path,
+      pattern,
+      matchCount: matches.length,
+      truncated: limited.truncated,
+      matches,
+      content: limited.text,
+    });
   },
 });

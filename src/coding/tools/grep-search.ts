@@ -2,6 +2,7 @@ import z from "zod";
 
 import { defineTool } from "@/foundation";
 
+import { errorToolResult, okToolResult } from "./tool-result";
 import { ensureDirectoryPath, truncateText } from "./tool-utils";
 
 const DEFAULT_LIMIT = 200;
@@ -24,7 +25,7 @@ export const grepSearchTool = defineTool({
   invoke: async ({ path, pattern, glob, caseSensitive, limit, maxChars }, signal) => {
     const dirCheck = await ensureDirectoryPath(path);
     if (!dirCheck.ok) {
-      return `Error: ${dirCheck.error}`;
+      return errorToolResult(dirCheck.error, "INVALID_DIRECTORY", { path, pattern, glob });
     }
 
     const cmd = ["rg", "--line-number", "--no-heading"];
@@ -53,24 +54,39 @@ export const grepSearchTool = defineTool({
       const exitCode = await proc.exited;
       if (exitCode !== 0 && exitCode !== 1) {
         const stderr = await new Response(proc.stderr).text();
-        return `Error: grep_search failed with exit code ${exitCode}: ${stderr}`;
+        return errorToolResult(`grep_search failed with exit code ${exitCode}`, "GREP_FAILED", {
+          path,
+          pattern,
+          glob,
+          exitCode,
+          stderr,
+        });
       }
 
       const lines = stdout.split("\n").filter(Boolean);
-      if (lines.length === 0) {
-        return `No matches for pattern ${pattern} under ${path}.`;
-      }
-
       const capped = lines.slice(0, limit ?? DEFAULT_LIMIT);
       const limited = truncateText(capped.join("\n"), maxChars ?? DEFAULT_MAX_CHARS);
-      const suffix = capped.length < lines.length ? `\n... [${lines.length - capped.length} more matches omitted]` : "";
-      return `Search root: ${path}\nPattern: ${pattern}\nMatches shown: ${capped.length} of ${lines.length}\n\n${limited.text}${suffix}`;
+      return okToolResult(`Found ${lines.length} matches for ${pattern}`, {
+        path,
+        pattern,
+        glob,
+        caseSensitive: Boolean(caseSensitive),
+        totalMatches: lines.length,
+        shownMatches: capped.length,
+        truncated: limited.truncated || capped.length < lines.length,
+        matches: capped,
+        content: limited.text,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes("No such file or directory") || message.includes("not found")) {
-        return `Error: Failed to run 'rg' (ripgrep). Please ensure ripgrep is installed and available in PATH. Detail: ${message}`;
+        return errorToolResult("Failed to run 'rg' (ripgrep). Please ensure ripgrep is installed and available in PATH.", "RG_NOT_FOUND", {
+          path,
+          pattern,
+          message,
+        });
       }
-      return `Error: grep_search failed to execute - ${message}`;
+      return errorToolResult("grep_search failed to execute.", "GREP_EXEC_FAILED", { path, pattern, message });
     }
   },
 });

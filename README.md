@@ -69,7 +69,7 @@ https://github.com/user-attachments/assets/4ad89f14-e338-43e4-82ce-91cb83d58be2
 - **Long-term memory**
   - **Project root `AGENTS.md` support**: if an `AGENTS.md` exists at the repository root, it is automatically picked up as project guidance.
 - **Coding Agent**
-  - A coding-focused agent layer with practical tools (e.g. `bash`, `read_file`, `write_file`, `str_replace`, `list_files`, `glob_search`, `grep_search`, `apply_patch`, etc.) for developer workflows.
+  - A coding-focused agent layer with practical tools (e.g. `bash`, `read_file`, `write_file`, `str_replace`, `list_files`, `glob_search`, `grep_search`, `apply_patch`, `file_info`, `mkdir`, `move_path`, etc.) for developer workflows.
   - Todo-list-based **plan mode** is supported.
 - **CLI**
   - A CLI (with TUI support) for running agents interactively and iterating quickly.
@@ -202,7 +202,7 @@ This layer depends only on Foundation and remains generic — not tied to any sp
 
 #### Layer 3: Coding Agent
 
-A domain-specific agent built on top of the generic agent loop, pre-configured with coding-oriented tools (`read_file`, `write_file`, `str_replace`, `bash`, `list_files`, `glob_search`, `grep_search`, `apply_patch`, etc.) and the skills middleware.
+A domain-specific agent built on top of the generic agent loop, pre-configured with coding-oriented tools (`read_file`, `write_file`, `str_replace`, `bash`, `list_files`, `glob_search`, `grep_search`, `apply_patch`, `file_info`, `mkdir`, `move_path`, etc.) and the skills middleware.
 
 ### Community
 

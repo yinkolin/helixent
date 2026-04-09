@@ -45,7 +45,7 @@ This layer should depend only on `foundation`, and remain generic (not coding-sp
 A layer for coding-specific agents and tools.
 
 - **Leading Agent**: `src/coding/agents/lead-agent.ts`
-- **Tools**: `src/coding/tools/*`, including `bash`, `read_file`, `write_file`, `str_replace`, `list_files`, `glob_search`, `grep_search`, `apply_patch`
+- **Tools**: `src/coding/tools/*`, including `bash`, `read_file`, `write_file`, `str_replace`, `list_files`, `glob_search`, `grep_search`, `apply_patch`, `file_info`, `mkdir`, `move_path`
 
 ### 4) `cli`
 

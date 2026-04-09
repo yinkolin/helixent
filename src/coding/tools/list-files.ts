@@ -5,6 +5,7 @@ import z from "zod";
 
 import { defineTool } from "@/foundation";
 
+import { errorToolResult, okToolResult } from "./tool-result";
 import { ensureDirectoryPath, truncateText } from "./tool-utils";
 
 const DEFAULT_LIMIT = 200;
@@ -42,13 +43,20 @@ export const listFilesTool = defineTool({
   invoke: async ({ path, recursive, maxDepth, limit, maxChars }) => {
     const dirCheck = await ensureDirectoryPath(path);
     if (!dirCheck.ok) {
-      return `Error: ${dirCheck.error}`;
+      return errorToolResult(dirCheck.error, "INVALID_DIRECTORY", { path });
     }
 
     const entries = await walk(path, recursive ? (maxDepth ?? 3) : 0);
     const capped = entries.slice(0, limit ?? DEFAULT_LIMIT);
     const limited = truncateText(capped.join("\n"), maxChars ?? DEFAULT_MAX_CHARS);
-    const suffix = capped.length < entries.length ? `\n... [${entries.length - capped.length} more entries omitted]` : "";
-    return `Directory: ${path}\nEntries shown: ${capped.length} of ${entries.length}\n\n${limited.text}${suffix}`;
+
+    return okToolResult(`Listed ${capped.length} entries under ${path}`, {
+      path,
+      totalEntries: entries.length,
+      shownEntries: capped.length,
+      truncated: limited.truncated || capped.length < entries.length,
+      entries: capped,
+      content: limited.text,
+    });
   },
 });
