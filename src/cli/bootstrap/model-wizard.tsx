@@ -9,11 +9,12 @@ import { currentTheme } from "../tui/themes";
 
 type Step = "provider" | "apiKey" | "modelName" | "baseURL" | "confirm";
 
-function buildModelEntry(baseURL: string, apiKey: string, modelName: string): ModelEntry {
+function buildModelEntry(baseURL: string, apiKey: string, modelName: string, provider: ModelEntry["provider"]): ModelEntry {
   return {
     name: modelName.trim(),
     baseURL: baseURL.trim(),
     APIKey: apiKey.trim(),
+    provider,
   };
 }
 
@@ -75,7 +76,7 @@ function ModelWizard({ onComplete, onAbort }: ModelWizardProps) {
 
   const finishWithBaseURL = (url: string) => {
     setCustomBaseURL(url);
-    const entry = buildModelEntry(url, apiKey, modelName);
+    const entry = buildModelEntry(url, apiKey, modelName, selectedProvider.providerType);
     setPendingEntry(entry);
     setStep("confirm");
   };
@@ -84,7 +85,7 @@ function ModelWizard({ onComplete, onAbort }: ModelWizardProps) {
     if (!selectedProvider.baseURL) {
       setStep("baseURL");
     } else {
-      const entry = buildModelEntry(selectedProvider.baseURL, apiKey, modelName);
+      const entry = buildModelEntry(selectedProvider.baseURL, apiKey, modelName, selectedProvider.providerType);
       setPendingEntry(entry);
       setStep("confirm");
     }

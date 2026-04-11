@@ -8,7 +8,9 @@ import { registerCommands } from "@/cli/commands";
 import { loadConfig } from "@/cli/config";
 import { SettingsLoader, SettingsWriter } from "@/cli/settings";
 import { createCodingAgent, globalApprovalManager } from "@/coding";
+import { AnthropicModelProvider } from "@/community/anthropic";
 import { OpenAIModelProvider } from "@/community/openai";
+import type { ModelProvider } from "@/foundation";
 import { Model } from "@/foundation";
 
 import { App } from "./tui";
@@ -39,10 +41,18 @@ if (args.length > 0) {
     throw new Error("No models configured. Run `helixent config model add` to add one.");
   }
 
-  const provider = new OpenAIModelProvider({
-    baseURL: entry.baseURL,
-    apiKey: entry.APIKey,
-  });
+  let provider: ModelProvider;
+  if (entry.provider === "anthropic") {
+    provider = new AnthropicModelProvider({
+      baseURL: entry.baseURL,
+      apiKey: entry.APIKey,
+    });
+  } else {
+    provider = new OpenAIModelProvider({
+      baseURL: entry.baseURL,
+      apiKey: entry.APIKey,
+    });
+  }
 
   const model = new Model(entry.name, provider, {
     max_tokens: 16 * 1024,
