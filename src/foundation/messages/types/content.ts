@@ -17,7 +17,7 @@ export interface ImageURLContent {
   /** Image URL. */
   image_url: {
     /** HTTPS (or other) URL of the image resource. */
-    url: "https://example.com";
+    url: string;
     /**
      * Optional vision detail level; provider-specific.
      * - `auto` — let the model decide resolution tradeoffs.
