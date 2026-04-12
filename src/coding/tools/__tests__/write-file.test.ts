@@ -26,7 +26,7 @@ describe("writeFileTool", () => {
       content: "hello\nworld\n",
     });
 
-    expect(result).toBeUndefined();
+    expect(result).toMatchObject({ ok: true, data: { path: filePath, bytes: 12 } });
     await expect(readFile(filePath, "utf8")).resolves.toBe("hello\nworld\n");
   });
 
@@ -34,12 +34,13 @@ describe("writeFileTool", () => {
     const filePath = join(tempDir, "mutable.txt");
     await writeFile(filePath, "before\n");
 
-    await writeFileTool.invoke({
+    const result = await writeFileTool.invoke({
       description: "Overwrite file",
       path: filePath,
       content: "after\n",
     });
 
+    expect(result).toMatchObject({ ok: true });
     await expect(readFile(filePath, "utf8")).resolves.toBe("after\n");
   });
 
@@ -48,12 +49,36 @@ describe("writeFileTool", () => {
     await mkdir(subDir, { recursive: true });
     const filePath = join(subDir, "deep.txt");
 
-    await writeFileTool.invoke({
+    const result = await writeFileTool.invoke({
       description: "Write nested file",
       path: filePath,
       content: "nested\n",
     });
 
+    expect(result).toMatchObject({ ok: true });
     await expect(readFile(filePath, "utf8")).resolves.toBe("nested\n");
+  });
+
+  test("creates parent directories when they do not exist", async () => {
+    const filePath = join(tempDir, "a", "b", "c", "deep.txt");
+
+    const result = await writeFileTool.invoke({
+      description: "Write deeply nested file",
+      path: filePath,
+      content: "deep content\n",
+    });
+
+    expect(result).toMatchObject({ ok: true, data: { path: filePath } });
+    await expect(readFile(filePath, "utf8")).resolves.toBe("deep content\n");
+  });
+
+  test("returns error for relative path", async () => {
+    const result = await writeFileTool.invoke({
+      description: "Relative path test",
+      path: "relative/path.txt",
+      content: "should fail",
+    });
+
+    expect(result).toMatchObject({ ok: false, code: "INVALID_PATH" });
   });
 });

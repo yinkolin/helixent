@@ -1,10 +1,16 @@
+import { exists, mkdir } from "node:fs/promises";
+import { parse } from "node:path";
+
 import z from "zod";
 
 import { defineTool } from "@/foundation";
 
+import { errorToolResult, okToolResult } from "./tool-result";
+import { ensureAbsolutePath } from "./tool-utils";
+
 export const writeFileTool = defineTool({
   name: "write_file",
-  description: "Write to a file at an absolute path.",
+  description: "Write to a file at an absolute path. Creates parent directories if they do not exist.",
   parameters: z.object({
     description: z
       .string()
@@ -13,7 +19,27 @@ export const writeFileTool = defineTool({
     content: z.string().describe("The content to write to the file."),
   }),
   invoke: async ({ path, content }) => {
-    const file = Bun.file(path);
-    await file.write(content);
+    const absolute = ensureAbsolutePath(path);
+    if (!absolute.ok) {
+      return errorToolResult(absolute.error, "INVALID_PATH", { path });
+    }
+
+    try {
+      // Ensure parent directory exists
+      const parentDir = parse(path).dir;
+      if (!(await exists(parentDir))) {
+        await mkdir(parentDir, { recursive: true });
+      }
+
+      const file = Bun.file(path);
+      await file.write(content);
+      return okToolResult(`Successfully wrote ${content.length} chars to ${path}`, {
+        path,
+        bytes: content.length,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return errorToolResult(`Failed to write file: ${path}`, "WRITE_FAILED", { path, message });
+    }
   },
 });

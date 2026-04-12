@@ -28,11 +28,9 @@ describe("strReplaceTool", () => {
       new: "y",
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: true,
-      path: filePath,
-      replacements: 2,
-      changed: true,
+      data: { path: filePath, replacements: 2, changed: true },
     });
     await expect(readFile(filePath, "utf8")).resolves.toBe("a y b y c\n");
   });
@@ -49,11 +47,9 @@ describe("strReplaceTool", () => {
       count: 1,
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: true,
-      path: filePath,
-      replacements: 1,
-      changed: true,
+      data: { path: filePath, replacements: 1, changed: true },
     });
     await expect(readFile(filePath, "utf8")).resolves.toBe("ONE two one three\n");
   });
@@ -70,11 +66,9 @@ describe("strReplaceTool", () => {
       count: 0,
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: true,
-      path: filePath,
-      replacements: 0,
-      changed: false,
+      data: { path: filePath, replacements: 0, changed: false },
     });
     await expect(readFile(filePath, "utf8")).resolves.toBe("abc\n");
   });
@@ -89,10 +83,7 @@ describe("strReplaceTool", () => {
       new: "b",
     });
 
-    expect(result).toEqual({
-      ok: false,
-      error: `File ${filePath} does not exist.`,
-    });
+    expect(result).toMatchObject({ ok: false, code: "FILE_NOT_FOUND" });
   });
 
   test("returns error when old is empty", async () => {
@@ -106,10 +97,7 @@ describe("strReplaceTool", () => {
       new: "y",
     });
 
-    expect(result).toEqual({
-      ok: false,
-      error: "`old` must be a non-empty string.",
-    });
+    expect(result).toMatchObject({ ok: false, code: "INVALID_ARGUMENT" });
   });
 
   test("returns error when old is not found", async () => {
@@ -123,9 +111,17 @@ describe("strReplaceTool", () => {
       new: "yes",
     });
 
-    expect(result).toEqual({
-      ok: false,
-      error: `No occurrences of 'old' found in ${filePath}.`,
+    expect(result).toMatchObject({ ok: false, code: "NOT_FOUND" });
+  });
+
+  test("returns error for relative path", async () => {
+    const result = await strReplaceTool.invoke({
+      description: "Relative path test",
+      path: "relative/file.txt",
+      old: "a",
+      new: "b",
     });
+
+    expect(result).toMatchObject({ ok: false, code: "INVALID_PATH" });
   });
 });

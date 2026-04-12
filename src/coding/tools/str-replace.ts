@@ -1,9 +1,9 @@
-import { exists, mkdir } from "node:fs/promises";
-import { parse } from "node:path";
-
 import z from "zod";
 
 import { defineTool } from "@/foundation";
+
+import { errorToolResult, okToolResult } from "./tool-result";
+import { ensureAbsolutePath } from "./tool-utils";
 
 export const strReplaceTool = defineTool({
   name: "str_replace",
@@ -23,22 +23,32 @@ export const strReplaceTool = defineTool({
       .optional(),
   }),
   invoke: async ({ path, old, new: replacement, count }) => {
+    const absolute = ensureAbsolutePath(path);
+    if (!absolute.ok) {
+      return errorToolResult(absolute.error, "INVALID_PATH", { path });
+    }
+
     const file = Bun.file(path);
     if (!(await file.exists())) {
-      return { ok: false as const, error: `File ${path} does not exist.` };
+      return errorToolResult(`File ${path} does not exist.`, "FILE_NOT_FOUND", { path });
     }
 
     if (old.length === 0) {
-      return { ok: false as const, error: "`old` must be a non-empty string." };
+      return errorToolResult("`old` must be a non-empty string.", "INVALID_ARGUMENT", { path });
     }
 
     const text = await file.text();
 
     const maxReplacements = count ?? Number.POSITIVE_INFINITY;
     if (maxReplacements === 0) {
-      return { ok: true as const, path, replacements: 0, changed: false as const };
+      return okToolResult(`No replacements requested (count=0) in ${path}`, {
+        path,
+        replacements: 0,
+        changed: false,
+      });
     }
 
+    // Count actual occurrences up to the limit
     let replacements = 0;
     let idx = 0;
     while (replacements < maxReplacements) {
@@ -49,7 +59,7 @@ export const strReplaceTool = defineTool({
     }
 
     if (replacements === 0) {
-      return { ok: false as const, error: `No occurrences of 'old' found in ${path}.` };
+      return errorToolResult(`No occurrences of 'old' found in ${path}.`, "NOT_FOUND", { path });
     }
 
     let updated: string;
@@ -65,16 +75,23 @@ export const strReplaceTool = defineTool({
     }
 
     if (updated === text) {
-      return { ok: true as const, path, replacements: 0, changed: false as const };
+      return okToolResult(`No effective changes in ${path}`, {
+        path,
+        replacements: 0,
+        changed: false,
+      });
     }
 
-    // Make sure the parent directory exists
-    const parentDir = parse(path).dir;
-    if (!(await exists(parentDir))) {
-      await mkdir(parentDir, { recursive: true });
+    try {
+      await file.write(updated);
+      return okToolResult(`Replaced ${replacements} occurrence(s) in ${path}`, {
+        path,
+        replacements,
+        changed: true,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return errorToolResult(`Failed to write replacement to ${path}`, "WRITE_FAILED", { path, message });
     }
-
-    await file.write(updated);
-    return { ok: true as const, path, replacements, changed: true as const };
   },
 });
