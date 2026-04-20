@@ -29,9 +29,7 @@ import type { SkillFrontmatter } from "./types";
  * - Skills are appended in the order of `skillsDirs`, then the directory listing order of each
  *   `skillsDir` (as returned by `readdir`).
  */
-export function createSkillsMiddleware(
-  skillsDirs: string[] = [join(process.cwd(), "skills")],
-): AgentMiddleware {
+export function createSkillsMiddleware(skillsDirs: string[] = [join(process.cwd(), "skills")]): AgentMiddleware {
   return {
     beforeAgentRun: async () => {
       const skills: SkillFrontmatter[] = [];
@@ -77,11 +75,17 @@ export function createSkillsMiddleware(
             )
           : null;
 
+        const skillsXML = agentContext.skills
+          .map((skill) => `<skill name="${skill.name}" path="${skill.path}">\n${skill.description}\n</skill>`)
+          .join("\n");
+        console.info(skillsXML);
+
         return {
           prompt:
             modelContext.prompt +
             `\n
 <skill_system>
+<instructions>
 You have access to skills that provide optimized workflows for specific tasks. Each skill contains best practices, frameworks, and references to additional resources.
 
 **Progressive Loading Pattern:**
@@ -91,15 +95,20 @@ You have access to skills that provide optimized workflows for specific tasks. E
 4. The skill file contains references to external resources under the same folder
 5. Load referenced resources only when needed during execution
 6. Follow the skill's instructions precisely
+</instructions>
 
-${requestedSkill ? `<explicit_skill_invocation>
+${
+  requestedSkill
+    ? `<explicit_skill_invocation>
 The user explicitly selected the skill "${requestedSkill.name}" from the slash command picker.
 You must read the matching skill file at "${requestedSkill.path}" before answering.
 </explicit_skill_invocation>
-` : ""}
+`
+    : ""
+}
 
 <skills>
-${JSON.stringify(agentContext.skills, null, 2)}
+${skillsXML}
 </skills>
 </skill_system>`,
         };
